@@ -1,0 +1,64 @@
+-- removing null values
+WITH cleaned_null AS ( SELECT *  
+FROM `second-metrics-359815.sale_data.product` 
+WHERE productID is not null AND
+  product_category is not null AND
+  product_sub_category is not null AND
+  product_name is not null AND
+  product_unit_cost is not null )
+
+SELECT * FROM cleaned_null
+
+-- cleaning order_fact table
+WITH orders_cleaned AS ( SELECT *
+FROM `second-metrics-359815.sale_data.order_fact` 
+WHERE productID is not null AND
+  order_date is not null AND
+  customerID is not null AND
+  ship_date is not null AND
+  units_orders is not null AND
+  revenue is not null AND
+  gross_profit is not null )
+
+SELECT * FROM orders_cleaned
+
+-- cleaning customer table
+WITH customer_cleaned AS ( SELECT *
+FROM `second-metrics-359815.sale_data.customer`
+WHERE customer_ID is not null AND
+  account_status is not null AND
+  customer_tier is not null AND
+  country is not null AND
+  latitude is not null AND
+  longitude is not null AND
+  name is not null)
+
+SELECT * from customer_cleaned
+
+-- total orders, revenue, profit & avg delivery time by product
+WITH product_summary AS (
+SELECT product.product_category, product.product_sub_category, product.product_name, 
+  AVG(date_diff(orders.ship_date,orders.order_date,day)) as delivery_time, 
+  SUM(orders.units_orders) as order_number, 
+  SUM(orders.revenue) as total_revenue, 
+  SUM(orders.gross_profit) as total_profit
+FROM `second-metrics-359815.sale_data.orders_cleaned` orders
+LEFT JOIN `second-metrics-359815.sale_data.cleaned_null` product
+  ON orders.ProductID = product.productID
+GROUP BY product.product_category, product.product_sub_category, product.product_name
+ORDER BY 1, 2, 3 ) 
+
+SELECT * FROM product_summary
+
+-- total orders, revenue & profit by country
+WITH by_country AS (
+SELECT customer.customer_id, customer.country, customer.longitude, customer.latitude, 
+  orders.units_orders, orders.revenue, orders.gross_profit, customer.name
+FROM `second-metrics-359815.sale_data.orders_cleaned` orders
+LEFT JOIN `second-metrics-359815.sale_data.customer_cleaned` customer
+ON customer.Customer_ID = orders.CustomerID
+GROUP BY customer.country, customer.customer_id, 
+  customer.longitude, customer.latitude, orders.units_orders, 
+  orders.revenue, orders.gross_profit, customer.name ) 
+
+SELECT * FROM by_country
